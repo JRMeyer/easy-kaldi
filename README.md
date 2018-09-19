@@ -1,3 +1,9 @@
+TODO 
+================
+- finish getting to normal egs from multi-task egs
+- delete old multi-task egs scripts
+- add new get_egs.sh
+
 Easy Kaldi
 ================
 
