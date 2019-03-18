@@ -66,6 +66,8 @@ done;
 diff $local_dir/tmp/utt-ids-audio.txt $local_dir/tmp/utt-ids-transcripts.txt > $local_dir/tmp/diff-ids.txt
 if [ -s $local_dir/tmp/diff-ids.txt ]; then
     printf "\n####\n#### ERROR: Audio files & transcripts mismatch \n####\n\n";
+    printf "\n#### Check the utterance IDs in data_{LANG}/local/tmp/utt-ids-*"
+    printf "\n#### and you should find the issue."
     exit 0;
 fi
 
