@@ -24,7 +24,7 @@ Here is an example of the structure of my `input_dir` directory for the corpus c
 input_corpus/
 ├── lexicon_nosil.txt -> /data/corpus/lexicon/lexicon_nosil.txt
 ├── lexicon.txt -> /data/corpus/lexicon/lexicon.txt
-├── corpus.arpabo -> /data/corpus/lm/corpus.arpabo
+├── task.arpabo -> /data/corpus/lm/corpus.arpabo
 ├── test_audio_path -> /data/corpus/audio/test_audio_path
 ├── train_audio_path -> /data/corpus/audio/train_audio_path
 ├── transcripts.test -> /data/corpus/audio/transcripts.test
