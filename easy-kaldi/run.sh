@@ -1,15 +1,14 @@
 #!/bin/bash
 
-dim=512
-num_epochs=5
-main_dir=MTL
-corpus_name="your-corpus-here"
+dim=8
+num_epochs=1
+corpus_name="ky"
 
 
 
 ./run_gmm.sh $corpus_name "test-001"
 
-./run_nnet3.sh $corpus_name "tri" "1.0" $dim $num_epochs $main_dir
+./run_nnet3.sh $corpus_name $dim $num_epochs
 
 
 exit

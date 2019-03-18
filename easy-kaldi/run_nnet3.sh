@@ -7,29 +7,11 @@
 # REQUIRED:
 #
 #    (1) baseline PLP features, and models (tri or mono) alignment (e.g. tri_ali or mono_ali)
-#        for all tasks
 #    (2) input data (audio, lm, etc)
-#
-# This script can be used for training multi-task setup using different
-# tasks with no shared phones.
-#
-# It will generate separate egs directory for each dataset and combine them
-# during training.
-#
-# In the multi-task training setup, mini-batches of data corresponding to
-# different tasks are randomly combined to generate egs.*.scp files
-# using steps/nnet3/multilingual/combine_egs.sh and generated egs.*.scp files
-#
-# For all tasks, we share all except last hidden layer and there is separate final
-# layer per task.
 #
 # This script does not use ivectors or bottleneck feats
 #
 #
-
-
-
-
 
 
 
@@ -56,15 +38,14 @@ set -e
 
 
 your_corpus=$1   # char string of input_dir name
-hidden_dim=$4  # number of hidden dimensions in NNET
-num_epochs=$5  # number of epochs through data
-main_dir=$6    # location of /data and /exp dir (probably "MTL")
+hidden_dim=$2  # number of hidden dimensions in NNET
+num_epochs=$3  # number of epochs through data
 
 
 
 cmd="utils/run.pl"
 
-exp_dir=$main_dir/exp/nnet3/easy
+exp_dir=exp_${your_corpus}/nnet3/easy
 master_egs_dir=$exp_dir/egs
 
 
@@ -78,17 +59,17 @@ if [ 1 ]; then
     #########################################
     
     # Check data files
-    for f in $main_dir/data/$your_corpus/train/{feats.scp,text} \
-	     $main_dir/exp/$your_corpus/tri_ali/ali.1.gz \
-	     $main_dir/exp/$your_corpus/tri_ali/tree; do
+    for f in data_${your_corpus}/train/{feats.scp,text} \
+                  exp_${your_corpus}/triphones_aligned/ali.1.gz \
+                  exp_${your_corpus}/triphones_aligned/tree; do
         [ ! -f $f ] && echo "$0: no such file $f" && exit 1;
-        done
     done
     
     # Make dirs for your corpus
-    data_dir=$main_dir/data/$your_corpus/train
-    egs_dir=$main_dir/exp/$your_corpus/nnet3/egs
-    ali_dir=$main_dir/exp/$your_corpus/tri_ali
+    data_dir=data_$your_corpus/train
+    #egs_dir=exp_$your_corpus/nnet3/egs
+    egs_dir=$master_egs_dir
+    ali_dir=exp_$your_corpus/triphones_aligned
     
     num_targets=`tree-info $ali_dir/tree 2>/dev/null | grep num-pdfs | awk '{print $2}'` || exit 1;
 	
@@ -102,7 +83,6 @@ if [ 1 ]; then
         echo "###### END TASK INFO ######"
         echo ""
 
-    done
 fi
 
 
@@ -159,7 +139,7 @@ if [ "$make_egs" -eq "1" ]; then
         --right-context 31 \
 	$data_dir \
 	$ali_dir \
-	$master_egs_dir/egs \
+	$master_egs_dir \
 	|| exit 1;
 
 fi
@@ -190,60 +170,21 @@ if [ "$train_nnet" -eq "1" ]; then
         --use-dense-targets false \
         --targets-scp $ali_dir \
         --cleanup.remove-egs true \
-        --use-gpu true \
+        --use-gpu false \
         --dir=$exp_dir  \
         || exit 1;
     
 
     
     # Get training ACC in right format for plotting
-    utils/format_accuracy_for_plot.sh "$main_dir/exp/nnet3/easy/log" "ACC_nnet3_easy.txt";
+    utils/format_accuracy_for_plot.sh "exp_${your_corpus}/nnet3/easy/log" "ACC_nnet3_easy.txt";
 
+    nnet3-am-init $ali_dir/final.mdl $exp_dir/final.raw $exp_dir/final.mdl || exit 1;
 
     echo "### ============== ###"
     echo "### END TRAIN NNET ###"
     echo "### ============== ###"
 
-fi
-
-
-
-
-if [ "$make_copies_nnet" -eq "1" ]; then
-
-    echo "### ========================== ###"
-    echo "### SPLIT & COPY NNET PER TASK ###"
-    echo "### ========================== ###"
-    
-    task_dir=$exp_dir/$your_corpus
-        
-    mkdir -p $task_dir
-        
-    echo "$0: add transition model."
-        
-    nnet3-copy \
-        --edits="rename-node old-name=output-$i new-name=output" \
-        $exp_dir/final.raw \
-        - | \
-        nnet3-am-init \
-            $ali_dir/final.mdl \
-            - \
-            $task_dir/final.mdl \
-        || exit 1;
-    
-    cp $exp_dir/cmvn_opts $task_dir/cmvn_opts || exit 1;
-        
-    echo "$0: compute average posterior and readjust priors for task $your_corpus."
-    
-    steps/nnet3/adjust_priors.sh \
-        --cmd "$cmd" \
-        --use-gpu true \
-        --iter "final" \
-        --use-raw-nnet false \
-        $task_dir \
-	$egs_dir \
-        || exit 1;
-    done
 fi
 
 
@@ -260,14 +201,12 @@ if [ "$decode_test" -eq "1" ]; then
     test_data_dir=data_$your_corpus/test
     graph_dir=exp_$your_corpus/triphones/graph
     decode_dir=${exp_dir}/decode
-    final_model=${exp_dir}/$your_corpus/final_adj.mdl
+    final_model=${exp_dir}/final.mdl
     
     mkdir -p $decode_dir
 
     unknown_phone="SPOKEN_NOISE"
     silence_phone="SIL"
-
-    echo "### decoding with $( `nproc` ) jobs, unigram LM ###"
     
     steps/nnet3/decode.sh \
         --nj `nproc` \
@@ -302,7 +241,7 @@ if [ "$decode_test" -eq "1" ]; then
           
     num_targets=`tree-info $ali_dir/tree 2>/dev/null | grep num-pdfs | awk '{print $2}'` || exit 1;
         
-        echo "
+    echo "
     ###### BEGIN EXP INFO ######
     task= $your_corpus
     num_targets= $num_targets
@@ -311,7 +250,6 @@ if [ "$decode_test" -eq "1" ]; then
     egs_dir= $egs_dir
     ###### END EXP INFO ######
     " >> WER_nnet3_easy.txt;
-    done
 
     echo "###==============###"
     echo "### END DECODING ###"
